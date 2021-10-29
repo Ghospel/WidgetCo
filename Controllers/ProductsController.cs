@@ -83,6 +83,12 @@ namespace WidgetAndCo.Controllers
         [HttpPost("{id}/AddImage")]
         public async Task<IActionResult> AddImage(string id, IFormFile file)
         {
+            var product = await _context.Products.FindAsync(id);
+            if (product == null)
+            {
+                return NotFound();
+            }
+
             try
             {
                 if (file.ContentType.Contains("image"))
@@ -91,6 +97,7 @@ namespace WidgetAndCo.Controllers
                     {
                         using (Stream stream = file.OpenReadStream())
                         {
+
                             Uri blobUri = new Uri("https://" +
                                                     _storageConfig.Value.AccountName +
                                                     ".blob.core.windows.net/" +
@@ -103,6 +110,7 @@ namespace WidgetAndCo.Controllers
                             BlobClient blobClient = new BlobClient(blobUri, storageCredentials);
 
                             await blobClient.UploadAsync(stream);
+                            product.Image = blobUri.ToString();
                         }
                     }
                 }
@@ -111,7 +119,9 @@ namespace WidgetAndCo.Controllers
                     return new UnsupportedMediaTypeResult();
                 }
 
-            return new AcceptedResult();
+                _context.Entry(product).State = EntityState.Modified;
+                await _context.SaveChangesAsync();
+                return new AcceptedResult();
             }
             catch (Exception ex)
             {
